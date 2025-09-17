@@ -4,7 +4,7 @@ from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 from pydantic import BaseModel, field_validator
 
-from json_coerce.model_convert import convert_model_to_struct 
+from json_coerce.wrapper import StructuredWrapper 
 
 
 # Define your output structure
@@ -55,27 +55,30 @@ Do not respond with any other content, only the JSON object with the following f
 if __name__ == "__main__":
     models = [
         "gpt-oss",
-        "deepseek-coder-v2:16b",
-        "codestral",  # tool bug
-        "mixtral",
-        "mistral"
+        # "deepseek-coder-v2:16b",
+        # "codestral",  # tool bug
+        # "mixtral",
+        # "mistral"
     ]
+
+    functionchat = StructuredWrapper(client, GeneratedFunction)
     
     prompt = "Write a Python function that returns n random integers between 1 and 100."
 
-    structure = structure_convert = convert_model_to_struct(GeneratedFunction)
-
     print("### Testing generation with various models ###")
+    print(f"models: {models}")
     print(f"Prompt:\n{prompt}\n")
-    print(f"Structure:\n{structure}\n")
+    print(f"Structure:\n{functionchat.structure}\n")
 
     for model in models:
         print(f"\n### Generating with model: {model}")
         try:
-            result = generate_response(prompt=prompt, model=model, structure=structure)
+            result = functionchat.chat(prompt, model)
         except Exception as e:
             print(f"Failed to generate with model: {model}")
             print(e)
             continue
 
-        print(result.choices[0].message.content)
+        print("Result:")
+        print(f"Name: {result.get('name')}")
+        print(f"Source:\n{result.get('source')}")

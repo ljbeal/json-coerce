@@ -14,3 +14,40 @@ To solve this problem, we need to ensure that an LLM outputs a correct response.
 the prompts are modified with a json-like "form" for the LLM to fill.
 
 We can use this idea with pydantic models.
+
+### Premise
+
+Similar to how BAML functions, we take an output specification (pydantic, in our case) and "decompose" it to a format such that it can be given to the LLM as a task.
+
+As an example, the prompt
+
+```
+Extract from the following: "Jason is a 34 year old Software Developer"
+```
+
+If we want the properties `name`, `age`, and `position`, we can modify the prompt as follows:
+
+```
+Extract from the following: "Jason is a 34 year old Software Developer"
+
+Give your response in the JSON format:
+{
+    // The person's name
+    "name": str,
+    // The person's age
+    "age": int,
+    // The person's job position
+    "position": str
+}
+```
+
+Ideally, the LLM will respond with _only_
+```
+{
+    "name": "Jason",
+    "age": 34,
+    "position": "Software Developer"
+}
+```
+
+Which we can then parse into a dictionary and validate with the original pydantic model

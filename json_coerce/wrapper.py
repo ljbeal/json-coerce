@@ -1,4 +1,5 @@
 import json
+import re
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
@@ -50,6 +51,43 @@ class StructuredWrapper:
 
         return completion.choices[0].message.content
 
+    def _get_json(self, text: str, current_retries: int, max_retries: int, retry_model: str) -> dict[str, str]:
+        """
+        Attempt to extract JSON from the text, retrying if necessary.
+        """
+
+        try:
+            return json.loads(clean_output(text))
+        except json.JSONDecodeError:            
+            if current_retries >= max_retries:
+                raise ValueError(f"Max retries reached, unable to extract valid JSON. Last attempt:\n{text}")
+            print(f"Failed to parse JSON, asking {retry_model} to retry... (try {current_retries + 1}/{max_retries})")
+            retry = self._chat(
+                JSON_RETRY_PROMPT.format(input=text),
+                model=retry_model
+            )
+            return self._get_json(retry, current_retries + 1, max_retries, retry_model)
+        
+    def _validate_structure(self, data: dict[str, str], current_retries: int, max_retries: int, retry_model: str) -> dict[str, str]:
+        try:
+            self.structure_model.model_validate(data)
+            return data
+
+        except ValidationError as e:
+            if current_retries >= max_retries:
+                raise ValueError(f"Max retries reached, unable to produce valid structure. Last attempt:\n{json.dumps(data, indent=2)}")
+            print(f"Validation failed, asking {retry_model} to fix the issue... (try {current_retries + 1}/{max_retries})")
+            retry = self._chat(
+                VALIDATION_RETRY_PROMPT.format(
+                    output=json.dumps(data, indent=2),
+                    error=str(e),
+                    structure=self.structure,
+                ),
+                model=retry_model
+            )
+            parsed = json.loads(clean_output(retry))
+            return self._validate_structure(parsed, current_retries + 1, max_retries, retry_model)
+
     def chat(self, prompt: str, model: str, max_retries: int = 3) -> dict[str, str]:
         current_retries = 0
 
@@ -65,30 +103,9 @@ Do not respond with any other content, only the JSON object with the following f
         if result is None:
             return {}
 
-        # TODO: now parse the json
-        try:
-            parsed = json.loads(clean_output(result))
-        except ValueError:
-            while current_retries < max_retries:
-                current_retries += 1
-                print(f"JSON parse failed, asking {model} to clean it up... (try {current_retries}/{max_retries})")
-                retry = self._chat(JSON_RETRY_PROMPT.format(input=result), model=model)
-                parsed = json.loads(clean_output(retry))
-        
-        try:
-            self.structure_model.model_validate(parsed)
-        except ValidationError as e:
-            while current_retries < max_retries:
-                current_retries += 1
-                print(f"Validation failed, asking {model} to fix the issue... (try {current_retries}/{max_retries})")
-                retry = self._chat(
-                    VALIDATION_RETRY_PROMPT.format(
-                        output=parsed,
-                        error=str(e),
-                        structure=self.structure,
-                    ),
-                    model=model
-                )
-                parsed = json.loads(clean_output(retry))
+        # now parse the json
+        parsed = self._get_json(result, current_retries, max_retries, retry_model=model)
+        # validate the model structure
+        parsed = self._validate_structure(parsed, current_retries, max_retries, retry_model=model)
 
         return parsed

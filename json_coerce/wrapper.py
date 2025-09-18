@@ -40,10 +40,23 @@ class StructuredWrapper:
         self.structure_model = structure
         self.structure = convert_model_to_struct(structure)
 
-    def _chat(self, prompt: str, model: str) -> str:
+        self.history = []
+
+    def _chat(self, model: str, prompt: str | None = None) -> str:
+        """
+        Act on the current message history, appending the response to the history.
+        """
+        if prompt is not None and (
+            len(self.history) == 0 or self.history[-1]["role"] != "user"
+        ):
+            self.history.append({"role": "user", "content": prompt})
+
+        if len(self.history) > 0 and self.history[-1]["role"] != "user":
+            raise ValueError("Last message in history must be from user")
+
         completion = self.client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=self.history,
         )
 
         if len(completion.choices) == 0:
@@ -52,6 +65,10 @@ class StructuredWrapper:
             return ""
         if completion.choices[0].message.content is None:
             return ""
+
+        self.history.append(
+            {"role": "assistant", "content": completion.choices[0].message.content}
+        )
 
         return completion.choices[0].message.content
 
@@ -72,7 +89,9 @@ class StructuredWrapper:
             print(
                 f"Failed to parse JSON, asking {retry_model} to retry... (try {current_retries + 1}/{max_retries})"
             )
-            retry = self._chat(JSON_RETRY_PROMPT.format(input=text), model=retry_model)
+            retry = self._chat(
+                model=retry_model, prompt=JSON_RETRY_PROMPT.format(input=text)
+            )
             return self._get_json(retry, current_retries + 1, max_retries, retry_model)
 
     def _validate_structure(
@@ -95,31 +114,40 @@ class StructuredWrapper:
                 f"Validation failed, asking {retry_model} to fix the issue... (try {current_retries + 1}/{max_retries})"
             )
             retry = self._chat(
-                VALIDATION_RETRY_PROMPT.format(
+                model=retry_model,
+                prompt=VALIDATION_RETRY_PROMPT.format(
                     output=json.dumps(data, indent=2),
                     error=str(e),
                     structure=self.structure,
                 ),
-                model=retry_model,
             )
             parsed = json.loads(clean_output(retry))
             return self._validate_structure(
                 parsed, current_retries + 1, max_retries, retry_model
             )
 
-    def chat(self, prompt: str, model: str, max_retries: int = 3) -> dict[str, str]:
+    def chat(
+        self, prompt: str | list[dict[str, str]], model: str, max_retries: int = 3
+    ) -> dict[str, str]:
+        if isinstance(prompt, str):
+            prompt = [{"role": "user", "content": prompt}]
+
         current_retries = 0
 
+        # get the content of the last user prompt
+        user_prompt_content = prompt.pop(-1)["content"]
+        # inject our structure into the prompt
         modified_prompt = f"""Extract details or perform tasks according to the following text:
 
-"{prompt}"
+"{user_prompt_content}"
 
 Your response should contain ONLY a valid JSON object with the following fields.
 Do not respond with any other content, only the JSON object with the following fields:
 {self.structure}"""
 
-        result = self._chat(modified_prompt, model)
-        if result is None:
+        # get a response
+        result = self._chat(model=model, prompt=modified_prompt)
+        if result == "":
             return {}
 
         # now parse the json
@@ -130,3 +158,13 @@ Do not respond with any other content, only the JSON object with the following f
         )
 
         return parsed
+
+    @property
+    def last_response(self) -> str:
+        """
+        Get the content of the last assistant response
+        """
+        for message in self.history[::-1]:
+            if message["role"] == "assistant":
+                return message["content"]
+        return ""

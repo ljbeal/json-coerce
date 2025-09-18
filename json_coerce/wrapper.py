@@ -1,18 +1,28 @@
 import json
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from json_coerce.json_parser import clean_output
 from json_coerce.model_convert import convert_model_to_struct
 
 
-RETRY_PROMPT = """Given the following input, extract relevant content and ensure it is formatted as valid JSON.
+JSON_RETRY_PROMPT = """Given the following input, extract relevant content and ensure it is formatted as valid JSON.
 
 Strip away any external formatting, markdown or commentary and return only the inner content.
 
 Return only the output of this operation, do not add your own commentry, explanation or formatting.
-{input}
-"""
+{input}"""
+
+VALIDATION_RETRY_PROMPT = """You provided the following JSON:
+{output}
+
+However it fails to validate for the following reason:
+{error}
+
+Please ensure it fits the structure exactly, and return a corrected JSON object that validates correctly.
+The structure is:
+{structure}"""
+
 
 
 class StructuredWrapper:
@@ -23,6 +33,7 @@ class StructuredWrapper:
         self.structure = convert_model_to_struct(structure)
         
     def _chat(self, prompt: str, model: str) -> str:
+
         completion = self.client.chat.completions.create(
             model=model,
             messages=[
@@ -39,7 +50,9 @@ class StructuredWrapper:
 
         return completion.choices[0].message.content
 
-    def chat(self, prompt: str, model: str) -> dict[str, str]:
+    def chat(self, prompt: str, model: str, max_retries: int = 3) -> dict[str, str]:
+        current_retries = 0
+
         modified_prompt = f"""Extract details or perform tasks according to the following text:
 
 "{prompt}"
@@ -56,8 +69,26 @@ Do not respond with any other content, only the JSON object with the following f
         try:
             parsed = json.loads(clean_output(result))
         except ValueError:
-            print("Initial parse failed, retrying with stricter prompt...")
-            parsed = json.loads(clean_output(self._chat(RETRY_PROMPT.format(input=result), model=model)))
-            
-        self.structure_model.model_validate(parsed)
+            while current_retries < max_retries:
+                current_retries += 1
+                print(f"JSON parse failed, asking {model} to clean it up... (try {current_retries}/{max_retries})")
+                retry = self._chat(JSON_RETRY_PROMPT.format(input=result), model=model)
+                parsed = json.loads(clean_output(retry))
+        
+        try:
+            self.structure_model.model_validate(parsed)
+        except ValidationError as e:
+            while current_retries < max_retries:
+                current_retries += 1
+                print(f"Validation failed, asking {model} to fix the issue... (try {current_retries}/{max_retries})")
+                retry = self._chat(
+                    VALIDATION_RETRY_PROMPT.format(
+                        output=parsed,
+                        error=str(e),
+                        structure=self.structure,
+                    ),
+                    model=model
+                )
+                parsed = json.loads(clean_output(retry))
+
         return parsed

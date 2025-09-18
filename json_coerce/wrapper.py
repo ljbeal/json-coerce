@@ -158,7 +158,7 @@ Do not respond with any other content, only the JSON object with the following f
             retry = self._chat(
                 model=retry_model,
                 prompt=VALIDATION_RETRY_PROMPT.format(
-                    output=json.dumps(data, indent=2),
+                    output=data,
                     error=str(e),
                     structure=self.structure,
                 ),

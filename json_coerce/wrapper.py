@@ -87,7 +87,7 @@ class StructuredWrapper:
                     f"Max retries reached, unable to extract valid JSON. Last attempt:\n{text}"
                 )
             print(
-                f"Failed to parse JSON, asking {retry_model} to retry... (try {current_retries + 1}/{max_retries})"
+                f"Failed to parse JSON, asking {retry_model} to retry... (attempt {current_retries + 1}/{max_retries})"
             )
             retry = self._chat(
                 model=retry_model, prompt=JSON_RETRY_PROMPT.format(input=text)
@@ -111,7 +111,7 @@ class StructuredWrapper:
                     f"Max retries reached, unable to produce valid structure. Last attempt:\n{json.dumps(data, indent=2)}"
                 )
             print(
-                f"Validation failed, asking {retry_model} to fix the issue... (try {current_retries + 1}/{max_retries})"
+                f"Validation failed, asking {retry_model} to fix the issue... (attempt {current_retries + 1}/{max_retries})"
             )
             retry = self._chat(
                 model=retry_model,

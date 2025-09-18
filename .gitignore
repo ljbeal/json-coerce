@@ -10,3 +10,6 @@ uv.lock
 
 # Virtual environments
 .venv
+
+# logs
+chat_log_*.txt

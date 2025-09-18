@@ -47,8 +47,8 @@ class StructuredWrapper:
 
 Your response should contain ONLY a valid JSON object with the following fields.
 Do not respond with any other content, only the JSON object with the following fields:
-{self.structure}
-    """
+{self.structure}"""
+
         result = self._chat(modified_prompt, model)
         if result is None:
             return {}

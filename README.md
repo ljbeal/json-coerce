@@ -10,7 +10,7 @@ This puts a blocker on _some_ models, which causes issues when we want to be as 
 
 ### Solution
 
-To solve this problem, we need to ensure that an LLM outputs a correct response. The behaviour of [BAML](https://docs.boundaryml.com/home) is such that 
+To solve this problem, we need to ensure that an LLM outputs a correct response. The behaviour of [BAML](https://docs.boundaryml.com/home) is such that
 the prompts are modified with a json-like "form" for the LLM to fill.
 
 We can use this idea with pydantic models.

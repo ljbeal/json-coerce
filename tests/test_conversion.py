@@ -32,7 +32,7 @@ def test_model_conversion(model: BaseModel.__class__) -> None:
     structure = convert_model_to_struct(model)
     assert structure.startswith("{")
     assert structure.endswith("}")
-    
+
     clean = "\n".join(line for line in structure.split("\n") if "//" not in line)
 
     as_dict = json.loads(clean)

@@ -8,10 +8,10 @@ from pydantic import field_validator
 class GeneratedFunction(BaseModel):
     name: Annotated[str, "Name of the function"]
     source: Annotated[
-        str, 
-        "Python source code of the function, all imports MUST be within the body, no external dependencies"
+        str,
+        "Python source code of the function, all imports MUST be within the body, no external dependencies",
     ]
- 
+
     @field_validator("source")
     def validate_source_code(cls, v: str) -> str:
         try:

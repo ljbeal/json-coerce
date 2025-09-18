@@ -21,11 +21,11 @@ def clean_output(content: str) -> str:
             indent -= line.count("}")
         if indent > 0:
             append = True
-        
+
         if append:
             cache.append(line)
 
         if indent == 0 and append:
             break
-    
+
     return "\n".join(cache)

@@ -6,9 +6,9 @@ from json_coerce.wrapper import StructuredWrapper
 
 
 client = OpenAI(
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",  # required, but unused
-    )
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",  # required, but unused
+)
 
 # "Mark is a 34 year old software engineer living in San Francisco."
 
@@ -25,9 +25,7 @@ Do not respond with any other content, only the JSON object with the following f
 
     completion = client.chat.completions.create(
         model=model,
-        messages=[
-            {"role": "user", "content": modified_prompt}
-        ],
+        messages=[{"role": "user", "content": modified_prompt}],
     )
 
     return completion
@@ -35,20 +33,20 @@ Do not respond with any other content, only the JSON object with the following f
 
 if __name__ == "__main__":
     models = [
-        # "gpt-oss",
+        "gpt-oss",
         "deepseek-coder-v2:16b",
-        # "codestral",  # tool bug
-        # "mixtral",
-        # "mistral"
+        "codestral",  # tool bug
+        "mixtral",
+        "mistral",
     ]
 
     functionchat = StructuredWrapper(client, GeneratedFunction)
-    
+
     prompt = "Write a Python function that returns n random integers between 1 and 100."
 
     print("### Testing generation with various models ###")
     print(f"models: {models}")
-    print(f"Prompt:\n{prompt}\n")
+    print(f"User Prompt:\n{prompt}\n")
     print(f"Structure:\n{functionchat.structure}\n")
 
     for model in models:

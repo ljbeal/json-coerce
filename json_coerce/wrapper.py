@@ -16,22 +16,27 @@ from json_coerce.json_parser import clean_output
 from json_coerce.model_convert import convert_model_to_struct
 
 
-JSON_RETRY_PROMPT = """Given the following input, extract relevant content and ensure it is formatted as valid JSON.
+JSON_RETRY_PROMPT = """You provided the following JSON:
+{input}
 
-Strip away any external formatting, markdown or commentary and return only the inner content.
+This cannot be parsed as valid JSON for the reason:
+{error}
+
+Please correct the JSON so that it can be parsed correctly.
 
 Return only the output of this operation, do not add your own commentry, explanation or formatting.
-{input}"""
+"""
 
-VALIDATION_RETRY_PROMPT = """You provided the following JSON:
+VALIDATION_RETRY_PROMPT = """You provided the following structured output:
 {output}
 
 However it fails to validate for the following reason:
 {error}
 
-Please ensure it fits the structure exactly, and return a corrected JSON object that validates correctly.
-The structure is:
-{structure}"""
+Please ensure it fits the structure exactly, and return a corrected JSON object that validates correctly against this structure:
+{structure}
+
+Return only the output of this operation, do not add your own commentry, explanation or formatting."""
 
 
 class StructuredWrapper:
@@ -120,7 +125,7 @@ Do not respond with any other content, only the JSON object with the following f
         try:
             json.loads(clean_output(text))
             return clean_output(text)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             if current_retries >= max_retries:
                 raise ValueError(
                     f"Max retries reached, unable to extract valid JSON. Last attempt:\n{text}"
@@ -129,7 +134,8 @@ Do not respond with any other content, only the JSON object with the following f
                 f"Failed to parse JSON, asking {retry_model} to retry... (attempt {current_retries + 1}/{max_retries})"
             )
             retry = self._chat(
-                model=retry_model, prompt=JSON_RETRY_PROMPT.format(input=text)
+                model=retry_model,
+                prompt=JSON_RETRY_PROMPT.format(input=text, error=str(e)),
             )
 
             return self._validate_output(

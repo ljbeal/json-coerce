@@ -1,3 +1,14 @@
+"""
+------------------------------------------
+Copyright: CEA Grenoble
+Auteur: Louis BEAL
+Entité: IRIG
+Année: 2025
+Description: Agent IA d'Intégration Continue
+------------------------------------------
+"""
+
+
 def clean_output(content: str) -> str:
     """
     Parse the JSON content from the LLM response.

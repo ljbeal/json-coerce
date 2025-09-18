@@ -54,8 +54,8 @@ Do not respond with any other content, only the JSON object with the following f
 
 if __name__ == "__main__":
     models = [
-        "gpt-oss",
-        # "deepseek-coder-v2:16b",
+        # "gpt-oss",
+        "deepseek-coder-v2:16b",
         # "codestral",  # tool bug
         # "mixtral",
         # "mistral"
@@ -72,12 +72,7 @@ if __name__ == "__main__":
 
     for model in models:
         print(f"\n### Generating with model: {model}")
-        try:
-            result = functionchat.chat(prompt, model)
-        except Exception as e:
-            print(f"Failed to generate with model: {model}")
-            print(e)
-            continue
+        result = functionchat.chat(prompt, model)
 
         print("Result:")
         print(f"Name: {result.get('name')}")

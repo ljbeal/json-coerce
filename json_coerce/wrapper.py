@@ -23,7 +23,6 @@ class StructuredWrapper:
         self.structure = convert_model_to_struct(structure)
         
     def _chat(self, prompt: str, model: str) -> str:
-        print(f"chat prompt:\n'{prompt}'")
         completion = self.client.chat.completions.create(
             model=model,
             messages=[

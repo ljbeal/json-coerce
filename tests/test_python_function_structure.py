@@ -4,10 +4,14 @@ from json_coerce.structures import GeneratedFunction
 
 
 invalid = [
+    """def foo""",  # invalid python
     """def generate_random_integers(n):
     return [randint(1, 100) for _ in range(n)]
 
-from random import randint"""
+from random import randint""",  # import after function
+    """import random
+def generate_random_integers(n):
+    return [random.randint(1, 100) for _ in range(n)]""",  # import outside function
 ]
 
 
@@ -17,7 +21,9 @@ valid = [
     return [random.randint(1, 100) for _ in range(n)]""",
     """def generate_random_integers(n):
     from random import randint
-    return [randint(1, 100) for _ in range(n)]"""
+    return [randint(1, 100) for _ in range(n)]""",
+    """def print(x: str):
+    print(x)"""
 ]
 
 

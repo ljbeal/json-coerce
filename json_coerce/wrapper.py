@@ -2,6 +2,7 @@ import json
 from openai import OpenAI
 from pydantic import BaseModel
 
+from json_coerce.json_parser import clean_output
 from json_coerce.model_convert import convert_model_to_struct
 
 
@@ -20,22 +21,6 @@ class StructuredWrapper:
         self.client = client
         self.structure_model = structure
         self.structure = convert_model_to_struct(structure)
-
-    def parse_output(self, content: str) -> dict:
-        """
-        Parse the JSON content from the LLM response.
-
-        Args:
-            content (str): The content string from the LLM response.
-
-        Returns:
-            dict: The parsed JSON object.
-        """
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError as e:
-            print(f"Failed to parse output:\n{content}\n")
-            raise ValueError(f"Failed to parse JSON: {e}")
         
     def _chat(self, prompt: str, model: str) -> str:
         print(f"chat prompt:\n'{prompt}'")
@@ -58,11 +43,11 @@ class StructuredWrapper:
     def chat(self, prompt: str, model: str) -> dict[str, str]:
         modified_prompt = f"""Extract details or perform tasks according to the following text:
 
-    "{prompt}"
+"{prompt}"
 
-    Your response should contain ONLY a valid JSON object with the following fields.
-    Do not respond with any other content, only the JSON object with the following fields:
-    {self.structure}
+Your response should contain ONLY a valid JSON object with the following fields.
+Do not respond with any other content, only the JSON object with the following fields:
+{self.structure}
     """
         result = self._chat(modified_prompt, model)
         if result is None:
@@ -70,10 +55,10 @@ class StructuredWrapper:
 
         # TODO: now parse the json
         try:
-            parsed = self.parse_output(result)
+            parsed = json.loads(clean_output(result))
         except ValueError:
             print("Initial parse failed, retrying with stricter prompt...")
-            parsed = self.parse_output(self._chat(RETRY_PROMPT.format(input=result), model=model))
+            parsed = json.loads(clean_output(self._chat(RETRY_PROMPT.format(input=result), model=model)))
             
         self.structure_model.model_validate(parsed)
         return parsed

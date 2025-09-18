@@ -1,27 +1,8 @@
-import ast
-from typing import Annotated
 from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
-from pydantic import BaseModel, field_validator
 
-from json_coerce.wrapper import StructuredWrapper 
-
-
-# Define your output structure
-class GeneratedFunction(BaseModel):
-    name: Annotated[str, "Name of the function"]
-    source: Annotated[
-        str, 
-        "Python source code of the function, all imports must be within the body"
-    ]
-
-    @field_validator("source")
-    def validate_source_code(cls, v: str) -> str:
-        try:
-            ast.parse(v)
-        except SyntaxError as e:
-            raise ValueError(f"Invalid Python code: {e}")
-        return v
+from json_coerce.structures import GeneratedFunction
+from json_coerce.wrapper import StructuredWrapper
 
 
 client = OpenAI(

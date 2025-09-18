@@ -72,60 +72,6 @@ class StructuredWrapper:
 
         return completion.choices[0].message.content
 
-    def _get_json(
-        self, text: str, current_retries: int, max_retries: int, retry_model: str
-    ) -> dict[str, str]:
-        """
-        Attempt to extract JSON from the text, retrying if necessary.
-        """
-
-        try:
-            return json.loads(clean_output(text))
-        except json.JSONDecodeError:
-            if current_retries >= max_retries:
-                raise ValueError(
-                    f"Max retries reached, unable to extract valid JSON. Last attempt:\n{text}"
-                )
-            print(
-                f"Failed to parse JSON, asking {retry_model} to retry... (attempt {current_retries + 1}/{max_retries})"
-            )
-            retry = self._chat(
-                model=retry_model, prompt=JSON_RETRY_PROMPT.format(input=text)
-            )
-            return self._get_json(retry, current_retries + 1, max_retries, retry_model)
-
-    def _validate_structure(
-        self,
-        data: dict[str, str],
-        current_retries: int,
-        max_retries: int,
-        retry_model: str,
-    ) -> dict[str, str]:
-        try:
-            self.structure_model.model_validate(data)
-            return data
-
-        except ValidationError as e:
-            if current_retries >= max_retries:
-                raise ValueError(
-                    f"Max retries reached, unable to produce valid structure. Last attempt:\n{json.dumps(data, indent=2)}"
-                )
-            print(
-                f"Validation failed, asking {retry_model} to fix the issue... (attempt {current_retries + 1}/{max_retries})"
-            )
-            retry = self._chat(
-                model=retry_model,
-                prompt=VALIDATION_RETRY_PROMPT.format(
-                    output=json.dumps(data, indent=2),
-                    error=str(e),
-                    structure=self.structure,
-                ),
-            )
-            parsed = json.loads(clean_output(retry))
-            return self._validate_structure(
-                parsed, current_retries + 1, max_retries, retry_model
-            )
-
     def chat(
         self, prompt: str | list[dict[str, str]], model: str, max_retries: int = 3
     ) -> dict[str, str]:
@@ -150,14 +96,77 @@ Do not respond with any other content, only the JSON object with the following f
         if result == "":
             return {}
 
-        # now parse the json
-        parsed = self._get_json(result, current_retries, max_retries, retry_model=model)
-        # validate the model structure
-        parsed = self._validate_structure(
-            parsed, current_retries, max_retries, retry_model=model
+        parsed = self._validate_output(result, current_retries, max_retries, model)
+
+        return json.loads(parsed)
+
+    def _validate_output(
+        self, output: str, current_retries: int, max_retries: int, retry_model: str
+    ) -> str:
+        output = self._get_json(output, current_retries, max_retries, retry_model)
+        output = self._validate_structure(
+            output, current_retries, max_retries, retry_model
         )
 
-        return parsed
+        return output
+
+    def _get_json(
+        self, text: str, current_retries: int, max_retries: int, retry_model: str
+    ) -> str:
+        """
+        Attempt to extract JSON from the text, retrying if necessary.
+        """
+
+        try:
+            json.loads(clean_output(text))
+            return clean_output(text)
+        except json.JSONDecodeError:
+            if current_retries >= max_retries:
+                raise ValueError(
+                    f"Max retries reached, unable to extract valid JSON. Last attempt:\n{text}"
+                )
+            print(
+                f"Failed to parse JSON, asking {retry_model} to retry... (attempt {current_retries + 1}/{max_retries})"
+            )
+            retry = self._chat(
+                model=retry_model, prompt=JSON_RETRY_PROMPT.format(input=text)
+            )
+
+            return self._validate_output(
+                retry, current_retries + 1, max_retries, retry_model
+            )
+
+    def _validate_structure(
+        self,
+        data: str,
+        current_retries: int,
+        max_retries: int,
+        retry_model: str,
+    ) -> str:
+        try:
+            self.structure_model.model_validate(json.loads(data))
+            return data
+
+        except ValidationError as e:
+            if current_retries >= max_retries:
+                raise ValueError(
+                    f"Max retries reached, unable to produce valid structure. Last attempt:\n{json.dumps(data, indent=2)}"
+                )
+            print(
+                f"Validation failed, asking {retry_model} to fix the issue... (attempt {current_retries + 1}/{max_retries})"
+            )
+            retry = self._chat(
+                model=retry_model,
+                prompt=VALIDATION_RETRY_PROMPT.format(
+                    output=json.dumps(data, indent=2),
+                    error=str(e),
+                    structure=self.structure,
+                ),
+            )
+
+            return self._validate_output(
+                retry, current_retries + 1, max_retries, retry_model
+            )
 
     @property
     def last_response(self) -> str:

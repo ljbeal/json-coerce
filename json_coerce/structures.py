@@ -24,7 +24,6 @@ class GeneratedFunction(BaseModel):
 
     @field_validator("source")
     def validate_source_code(cls, v: str) -> str:
-        v = v.replace("\\n", "\n")
         try:
             ast.parse(v)
         except SyntaxError as e:

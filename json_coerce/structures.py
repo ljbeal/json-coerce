@@ -24,9 +24,9 @@ class GeneratedFunction(BaseModel):
         for line in v.splitlines():
             if "def " in line:
                 body = True
-            if "\t" not in line or "    " not in line:
+            elif "\t" not in line and "    " not in line:
                 body = False
-            
+
             if "import " in line and not body:
                 raise ValueError("Imports must be within the body of the function")
 

@@ -49,7 +49,9 @@ if __name__ == "__main__":
         functionchat = StructuredWrapper(client, GeneratedFunction)
         try:
             print(f"\n### Generating with model: {model}")
-            result = functionchat.chat(prompt, model)
+            result = StructuredWrapper.json_coerced_chat_oneshot(
+                client, GeneratedFunction, model, prompt, max_retries=3
+            )
 
             print("Result:")
             print(json.dumps(result, indent=2))

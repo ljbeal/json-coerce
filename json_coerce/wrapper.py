@@ -47,6 +47,18 @@ class StructuredWrapper:
 
         self.history = []
 
+    @classmethod
+    def json_coerced_chat_oneshot(
+        cls,
+        client: OpenAI,
+        structure: BaseModel.__class__,
+        model: str,
+        prompt: str | list[dict[str, str]],
+        max_retries: int = 3,
+    ) -> dict[str, str]:
+        wrapper = cls(client=client, structure=structure)
+        return wrapper.chat(prompt=prompt, model=model, max_retries=max_retries)
+
     def _chat(self, model: str, prompt: str | None = None) -> str:
         """
         Act on the current message history, appending the response to the history.
